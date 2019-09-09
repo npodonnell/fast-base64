@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-# test against the system's `base64` program
+#
+# A few simple sanity tests to make sure it's correctly encoding and decoding
+#
 
 error=0
 

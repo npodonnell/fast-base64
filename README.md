@@ -60,8 +60,12 @@ The algorithm casts pairs of base64 ASCII characters which appear side-by-side i
 
 When the end of the input data is reached, the base64 standard requires that some padding bytes are added if the length of the input data is not a multiple of 3. The `=` character is used as the padding character.
 
-The last block will be handled differently in both encoding and decoding to ensure no reads or writes are made to uninitalized memory.
+The last block will be handled differently in both encoding and decoding to ensure no reads are made to uninitalized memory and no writes are made to unallocated memory.
 
 ## Performance
 
-Performance is comparable to the `base64` program from GNU coreutils which ships with most Linux distros.
+Performance is comparable to the `base64` program from GNU coreutils which ships with most Linux distros, however this doesn't indicate much since the speed of piping in the data is much slower compared to the speed of processing.
+
+I did test the performance using in-memory arrays of random data and compared to the fastest base64 implementation I could find, which is [this AVX2-accelerated implementation](https://github.com/lemire/fastbase64/blob/master/src/fastavxbase64.c).
+
+fast-base64 took about 2X the time of this implementation, which is impressive since fast-base64 does not contain any SIMD optimizations.

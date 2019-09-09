@@ -24,30 +24,40 @@ void encode_base64(
     char* out,
     size_t* nout)
 {
-    BYTE* dp = (BYTE*) data - 1;
-    BYTE* dl = (BYTE*) dp + len;
-    char* op = out - 1;
+    BYTE* dp = (BYTE*) data;
+    BYTE* dll = (BYTE*) (dp + len);
+    BYTE* dl = dll - 3;
+    char* op = out;
 
     /* main encoding loop */
     while (dp < dl) {
-        *(++op) = C0_ENCODE_TABLE[*++dp];
-        *(++op) = C1_ENCODE_TABLE[*((unsigned short*) dp )]; 
-        *(++op) = C2_ENCODE_TABLE[*((unsigned short*) ++dp )];
-        *(++op) = C3_ENCODE_TABLE[*++dp];
+        *op++ = C0_ENCODE_TABLE[*dp];
+        *op++ = C1_ENCODE_TABLE[*((unsigned short*) dp++ )]; 
+        *op++ = C2_ENCODE_TABLE[*((unsigned short*) dp++ )];
+        *op++ = C3_ENCODE_TABLE[*dp++];
     }
 
-    /* pad */
-    switch (dp - dl) {
+    *op++ = C0_ENCODE_TABLE[*dp];
+
+    /* last block */
+    switch (dll - dp) {
         case 1:
-            /* 2/3 byte block - re-compute b64 character c2 with mask and add 1 padding character */
-            *(op - 1) = C2_ENCODE_TABLE[*((unsigned short*)(dp - 1)) & 0x00FF];
-            *(op) = '=';
+            /* last block contains 1 byte */
+            *op++ = C1_ENCODE_TABLE[*((unsigned short*)dp) & 0x00FF];
+            *op++ = '=';
+            *op = '=';
             break;
         case 2:
-            /* 1/3 byte block - re-compute b64 character c1 with mask and add 2 padding characters */
-            *(op - 2) =  C1_ENCODE_TABLE[*((unsigned short*)(dp - 2)) & 0x00FF];
-            *(op - 1) = '=';
-            *(op) = '=';
+            /* last block contains 2 bytes */
+            *op++ = C1_ENCODE_TABLE[*((unsigned short*) dp++ )]; 
+            *op++ = C2_ENCODE_TABLE[*((unsigned short*) dp) & 0x00FF];
+            *op = '=';
+            break;
+        case 3:
+            /* last block contains 3 bytes */
+            *op++ = C1_ENCODE_TABLE[*((unsigned short*) dp++ )]; 
+            *op++ = C2_ENCODE_TABLE[*((unsigned short*) dp++ )];
+            *op = C3_ENCODE_TABLE[*dp];
             break;
     }
  
@@ -60,27 +70,27 @@ void decode_base64(
     BYTE* out,
     size_t* nout)
 {
-    char* sp = (char*) b64 - 1;
+    char* sp = (char*) b64;
     char* sl = (char*) sp + len;
-    BYTE* op = out - 1;
+    BYTE* op = out;
 
     /* main decoding loop */
     while (sp < sl) {
-        *(++op) = B0_DECODE_TABLE[*((unsigned short*)(++sp))];
-        *(++op) = B1_DECODE_TABLE[*((unsigned short*)(++sp))];
-        *(++op) = B2_DECODE_TABLE[*((unsigned short*)(++sp))];
+        *op++ = B0_DECODE_TABLE[*((unsigned short*) sp++ )];
+        *op++ = B1_DECODE_TABLE[*((unsigned short*) sp++ )];
+        *op++ = B2_DECODE_TABLE[*((unsigned short*) sp++ )];
         sp++;
     }
 
     /* un-pad - just reduce the # of bytes reported. No need to mess with the data. */
-    if (*sp == '=') {
-        if (*(sp - 1) == '=') {
-            *nout = (op - out) - 1;
+    if (*(sp - 1) == '=') {
+        if (*(sp - 2) == '=') {
+            *nout = (op - out) - 2;
         } else {
-            *nout = (op - out);
+            *nout = (op - out) - 1;
         }
     } else {
-        *nout = (op - out) + 1;
+        *nout = (op - out);
     }
 }
 

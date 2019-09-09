@@ -25,7 +25,7 @@ void encode_base64(
     size_t* nout)
 {
     BYTE* dp = (BYTE*) data;
-    BYTE* dll = (BYTE*) (dp + len);
+    BYTE* dll = dp + len;
     BYTE* dl = dll - 3;
     char* op = out;
 
@@ -41,23 +41,23 @@ void encode_base64(
 
     /* last block */
     switch (dll - dp) {
-        case 1:
-            /* last block contains 1 byte */
-            *op++ = C1_ENCODE_TABLE[*((unsigned short*)dp) & 0x00FF];
-            *op++ = '=';
-            *op = '=';
-            break;
-        case 2:
-            /* last block contains 2 bytes */
-            *op++ = C1_ENCODE_TABLE[*((unsigned short*) dp++ )]; 
-            *op++ = C2_ENCODE_TABLE[*((unsigned short*) dp) & 0x00FF];
-            *op = '=';
-            break;
         case 3:
             /* last block contains 3 bytes */
             *op++ = C1_ENCODE_TABLE[*((unsigned short*) dp++ )]; 
             *op++ = C2_ENCODE_TABLE[*((unsigned short*) dp++ )];
             *op = C3_ENCODE_TABLE[*dp];
+            break;
+        case 2:
+            /* last block contains 2 bytes */
+            *op++ = C1_ENCODE_TABLE[*((unsigned short*) dp++ )]; 
+            *op++ = C2_ENCODE_TABLE[(unsigned short)*dp];
+            *op = '=';
+            break;
+        case 1:
+            /* last block contains 1 byte */
+            *op++ = C1_ENCODE_TABLE[(unsigned short)*dp];
+            *op++ = '=';
+            *op = '=';
             break;
     }
  
@@ -71,7 +71,8 @@ void decode_base64(
     size_t* nout)
 {
     char* sp = (char*) b64;
-    char* sl = (char*) sp + len;
+    char* sll = sp + len;
+    char* sl = sll - 4;
     BYTE* op = out;
 
     /* main decoding loop */
@@ -82,16 +83,22 @@ void decode_base64(
         sp++;
     }
 
-    /* un-pad - just reduce the # of bytes reported. No need to mess with the data. */
-    if (*(sp - 1) == '=') {
-        if (*(sp - 2) == '=') {
-            *nout = (op - out) - 2;
-        } else {
-            *nout = (op - out) - 1;
-        }
+    /* last block */
+    if (*(sll - 2) == '=') {
+        /* last block contains 1 byte */
+        *op = B0_DECODE_TABLE[*((unsigned short*) sp )];
+    } else if (*(sll - 1) == '=') {
+        /* last block contains 2 bytes */
+        *op++ = B0_DECODE_TABLE[*((unsigned short*) sp++ )];
+        *op = B1_DECODE_TABLE[*((unsigned short*) sp )];
     } else {
-        *nout = (op - out);
+        /* last block contains 3 bytes */
+        *op++ = B0_DECODE_TABLE[*((unsigned short*) sp++ )];
+        *op++ = B1_DECODE_TABLE[*((unsigned short*) sp++ )];
+        *op = B2_DECODE_TABLE[*((unsigned short*) sp )];
     }
+
+    *nout = (op - out) + 1;
 }
 
 int main(
@@ -112,7 +119,6 @@ int main(
             default:
                 exit(-1);
         }
-
     if (encode) {
         while ((nread = read(0, data_buf, DATA_BUF_SIZE)) > 0) {
             encode_base64(data_buf, nread, b64_buf, &nout);
@@ -120,9 +126,7 @@ int main(
                 fprintf(stderr, "error writing base64 data to stdout");
             }
         }
-
         puts("");
-
     } else {
         while ((nread = read(0, b64_buf, B64_BUF_SIZE)) > 0) {
             decode_base64(b64_buf, nread, data_buf, &nout);
@@ -131,7 +135,6 @@ int main(
             }
         }
     }
-    
 
     return 0;
 }

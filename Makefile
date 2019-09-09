@@ -10,3 +10,6 @@ fast-base64: fast-base64.c lookup_tables.h
 
 lookup: generate_lookup_tables.py
 	./generate_lookup_tables.py > lookup_tables.h
+
+clean:
+	rm lookup_tables.h fast-base64

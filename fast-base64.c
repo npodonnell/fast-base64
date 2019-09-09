@@ -1,6 +1,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <stdio.h>
 
 typedef unsigned char BYTE;
@@ -11,7 +12,7 @@ typedef unsigned char BYTE;
     Buffer size is measured in chunks. Each chunk is either
     3 bytes of raw data, or 4 bytes of base64 characters.
 */
-#define BUF_CHUNKS 100
+#define BUF_CHUNKS 10000
 
 const static size_t DATA_BUF_SIZE = BUF_CHUNKS * 3;
 const static size_t B64_BUF_SIZE = BUF_CHUNKS * 4;
@@ -71,7 +72,7 @@ void decode_base64(
         sp++;
     }
 
-    /* up-pad - just reduce the # of bytes reported. No need to mess with the data. */
+    /* un-pad - just reduce the # of bytes reported. No need to mess with the data. */
     if (*sp == '=') {
         if (*(sp - 1) == '=') {
             *nout = (op - out) - 1;
@@ -90,23 +91,37 @@ int main(
     BYTE data_buf[DATA_BUF_SIZE];
     char b64_buf[B64_BUF_SIZE];
     size_t nread, nout;
-    int encode = 0;
+    int encode = 1;
+    int opt;
+
+    while ((opt = getopt(argc, argv, "d")) != -1)
+        switch (opt) {
+            case 'd':
+                encode = 0;
+                break;
+            default:
+                exit(-1);
+        }
 
     if (encode) {
-        while ((nread = fread(data_buf, 1, DATA_BUF_SIZE, stdin)) > 0) {
+        while ((nread = read(0, data_buf, DATA_BUF_SIZE)) > 0) {
             encode_base64(data_buf, nread, b64_buf, &nout);
-            fwrite(b64_buf, nout, 1, stdout);
+            if (!write(1, b64_buf, nout)) {
+                fprintf(stderr, "error writing base64 data to stdout");
+            }
         }
-    } else {
-        while ((nread = fread(b64_buf, 1, B64_BUF_SIZE, stdin)) > 0) {
-            decode_base64(b64_buf, nread, data_buf, &nout);
 
+        puts("");
+
+    } else {
+        while ((nread = read(0, b64_buf, B64_BUF_SIZE)) > 0) {
+            decode_base64(b64_buf, nread, data_buf, &nout);
             if (!write(1, data_buf, nout)) {
-                fprintf(stderr, "oh");
+                fprintf(stderr, "error writing binary data to stdout");
             }
         }
     }
-    puts("");
+    
 
     return 0;
 }
